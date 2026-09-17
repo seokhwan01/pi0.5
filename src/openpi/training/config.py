@@ -948,7 +948,7 @@ _CONFIGS = [
         
         # num_train_steps=20_000,
         num_train_steps=30_000,
-        batch_size=32,
+        batch_size=16,
     ),
     
     
