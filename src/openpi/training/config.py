@@ -904,12 +904,19 @@ _CONFIGS = [
             pi05=True,
             action_dim=32,  # pi05 is trained with 32-dim actions
             action_horizon=16,
+            
+            # LoRA
+            paligemma_variant="gemma_2b_lora",
+            action_expert_variant="gemma_300m_lora",
         ),
+        
+        
         data=LeRobotDROIDDataConfig(
             # Replace with your custom DROID LeRobot dataset repo id.
             # repo_id="your_hf_username/my_droid_dataset",
             repo_id="seokhwan/my_droid_dataset",
             # base_config=DataConfig(prompt_from_task=True),
+            
             base_config=DataConfig(
                 prompt_from_task=True,
                 sample_indices_path="/home/yina/seokhwan/my_droid_dataset_lerobot/nonidle_indices.npy",
@@ -927,9 +934,24 @@ _CONFIGS = [
         ),
         # weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_droid/params"),
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
-        num_train_steps=20_000,
+        
+        # 원본 weight freeze → LoRA parameter만 학습
+        freeze_filter=pi0_config.Pi0Config(
+            pi05=True,
+            action_dim=32,
+            action_horizon=16,
+            paligemma_variant="gemma_2b_lora",
+            action_expert_variant="gemma_300m_lora",
+        ).get_freeze_filter(),
+        #  EMA 비활성화
+        ema_decay=None,
+        
+        # num_train_steps=20_000,
+        num_train_steps=30_000,
         batch_size=32,
     ),
+    
+    
     #
     # ALOHA Sim configs. This config is used to demonstrate how to train on a simple simulated environment.
     #
