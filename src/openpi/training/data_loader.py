@@ -127,26 +127,110 @@ class FakeDataset(Dataset):
         return self._num_samples
 
 
+# def create_torch_dataset(
+#     data_config: _config.DataConfig, action_horizon: int, model_config: _model.BaseModelConfig
+# ) -> Dataset:
+#     """Create a dataset for training."""
+#     repo_id = data_config.repo_id
+#     if repo_id is None:
+#         raise ValueError("Repo ID is not set. Cannot create dataset.")
+#     if repo_id == "fake":
+#         return FakeDataset(model_config, num_samples=1024)
+
+#     dataset_meta = lerobot_dataset.LeRobotDatasetMetadata(repo_id)
+#     dataset = lerobot_dataset.LeRobotDataset(
+#         data_config.repo_id,
+#         delta_timestamps={
+#             key: [t / dataset_meta.fps for t in range(action_horizon)] for key in data_config.action_sequence_keys
+#         },
+#     )
+
+#     if data_config.prompt_from_task:
+#         dataset = TransformedDataset(dataset, [_transforms.PromptFromLeRobotTask(dataset_meta.tasks)])
+
+#     return dataset
+
 def create_torch_dataset(
-    data_config: _config.DataConfig, action_horizon: int, model_config: _model.BaseModelConfig
+    data_config: _config.DataConfig,
+    action_horizon: int,
+    model_config: _model.BaseModelConfig,
 ) -> Dataset:
     """Create a dataset for training."""
     repo_id = data_config.repo_id
+
     if repo_id is None:
         raise ValueError("Repo ID is not set. Cannot create dataset.")
+
     if repo_id == "fake":
         return FakeDataset(model_config, num_samples=1024)
 
-    dataset_meta = lerobot_dataset.LeRobotDatasetMetadata(repo_id)
+    dataset_meta = lerobot_dataset.LeRobotDatasetMetadata(
+        repo_id,
+        root=data_config.lerobot_root,
+    )
+
     dataset = lerobot_dataset.LeRobotDataset(
-        data_config.repo_id,
+        repo_id,
+        root=data_config.lerobot_root,
         delta_timestamps={
-            key: [t / dataset_meta.fps for t in range(action_horizon)] for key in data_config.action_sequence_keys
+            key: [
+                t / dataset_meta.fps
+                for t in range(action_horizon)
+            ]
+            for key in data_config.action_sequence_keys
         },
     )
 
+    # -------------------------------------------------
+    # non-idle frame만 학습 시작점으로 사용
+    # -------------------------------------------------
+    if data_config.sample_indices_path is not None:
+        sample_indices = np.load(
+            data_config.sample_indices_path
+        ).astype(np.int64)
+
+        if sample_indices.ndim != 1:
+            raise ValueError(
+                "sample_indices must be a 1D array."
+            )
+
+        if len(sample_indices) == 0:
+            raise ValueError(
+                "sample_indices is empty."
+            )
+
+        if sample_indices.min() < 0:
+            raise ValueError(
+                "sample_indices contains negative indices."
+            )
+
+        if sample_indices.max() >= len(dataset):
+            raise ValueError(
+                f"sample index {sample_indices.max()} "
+                f"is out of dataset range {len(dataset)}."
+            )
+
+        logging.info(
+            "Using %d / %d samples from %s",
+            len(sample_indices),
+            len(dataset),
+            data_config.sample_indices_path,
+        )
+
+        dataset = torch.utils.data.Subset(
+            dataset,
+            sample_indices.tolist(),
+        )
+
     if data_config.prompt_from_task:
-        dataset = TransformedDataset(dataset, [_transforms.PromptFromLeRobotTask(dataset_meta.tasks)])
+        dataset = TransformedDataset(
+            dataset,
+            [
+                _transforms.PromptFromLeRobotTask(
+                    dataset_meta.tasks
+                )
+            ],
+        )
 
     return dataset
 

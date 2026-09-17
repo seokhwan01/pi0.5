@@ -13,14 +13,13 @@ The resulting dataset will get saved to the $LEROBOT_HOME directory.
 from pathlib import Path
 import shutil
 
-from lerobot.common.datasets.lerobot_dataset import HF_LEROBOT_HOME
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
-
 import numpy as np
+import pandas as pd
 from PIL import Image
 from tqdm import tqdm
 import tyro
-import pandas as pd
+from droid_csv_preprocess import filter_idle_rows
 
 # REPO_NAME = "your_hf_username/my_droid_dataset"  # Name of the output dataset, also used for the Hugging Face Hub
 REPO_NAME = "seokhwan/my_droid_dataset"
@@ -80,42 +79,35 @@ def main(data_dir: str, *, push_to_hub: bool = False):
                 "names": ["actions"],
             },
         },
-        
         image_writer_threads=10,
         image_writer_processes=5,
     )
 
-    episode_paths = sorted([
-        p for p in data_dir.iterdir()
-        if p.is_dir() and (p / "steps.csv").exists()
-    ])
-    
+    episode_paths = sorted([p for p in data_dir.iterdir() if p.is_dir() and (p / "steps.csv").exists()])
+
     print(f"Found {len(episode_paths)} episodes for conversion")
 
     # We will loop over each dataset_name and write episodes to the LeRobot dataset
     for episode_path in tqdm(episode_paths, desc="Converting episodes"):
-        df = pd.read_csv(episode_path / "steps.csv")
+        episode_df = pd.read_csv(episode_path / "steps.csv")
+        
+        # episode_df = filter_idle_rows(episode_df)
+        
         # 2. 여기서 joint velocity 계산
-        joint_cols = [
-            "joint_1", "joint_2", "joint_3", "joint_4",
-            "joint_5", "joint_6", "joint_7"
-        ]
+        joint_cols = ["joint_1", "joint_2", "joint_3", "joint_4", "joint_5", "joint_6", "joint_7"]
 
-        joint_pos = df[joint_cols].to_numpy(dtype=np.float32)
-        timestamps = df["timestamp"].to_numpy(dtype=np.float32)
+        joint_pos = episode_df[joint_cols].to_numpy(dtype=np.float32)
+        timestamps = episode_df["timestamp"].to_numpy(dtype=np.float32)
 
         joint_vel = np.zeros_like(joint_pos)
 
         dt = timestamps[1:] - timestamps[:-1]
 
-        joint_vel[:-1] = (
-            joint_pos[1:] - joint_pos[:-1]
-        ) / dt[:, None]
+        joint_vel[:-1] = (joint_pos[1:] - joint_pos[:-1]) / dt[:, None]
 
         joint_vel[-1] = joint_vel[-2]
 
-        
-        for i, row in df.iterrows():
+        for i, row in episode_df.iterrows():
             primary_path = episode_path / row["primary"]
             wrist_path = episode_path / row["wrist"]
             gripper_position = float(row["finger_1"])
@@ -124,37 +116,32 @@ def main(data_dir: str, *, push_to_hub: bool = False):
 
             primary = resize_image(primary, (320, 180))
             wrist = resize_image(wrist, (320, 180))
-            
-            action_gripper = float(
-                str(row["target_gripper"]).strip("[]")
-            )
+
+            action_gripper = float(str(row["target_gripper"]).strip("[]"))
 
             language_instruction = str(row["language"])
 
             if language_instruction.startswith("b'") and language_instruction.endswith("'"):
                 language_instruction = language_instruction[2:-1]
-                    
+
             dataset.add_frame(
                 {
                     "exterior_image_1_left": primary,
                     "wrist_image_left": wrist,
-                    "joint_position": np.asarray([
-                        row["joint_1"],
-                        row["joint_2"],
-                        row["joint_3"],
-                        row["joint_4"],
-                        row["joint_5"],
-                        row["joint_6"],
-                        row["joint_7"],
-                    ], dtype=np.float32),
-                    
-                    "gripper_position": np.asarray(
-                        [gripper_position],
-                        dtype=np.float32
+                    "joint_position": np.asarray(
+                        [
+                            row["joint_1"],
+                            row["joint_2"],
+                            row["joint_3"],
+                            row["joint_4"],
+                            row["joint_5"],
+                            row["joint_6"],
+                            row["joint_7"],
+                        ],
+                        dtype=np.float32,
                     ),
-                    
-                    "actions": np.concatenate([joint_vel[i],np.asarray([action_gripper],dtype=np.float32)]),
-                    
+                    "gripper_position": np.asarray([gripper_position], dtype=np.float32),
+                    "actions": np.concatenate([joint_vel[i], np.asarray([action_gripper], dtype=np.float32)]),
                     "task": language_instruction,
                 }
             )
@@ -167,6 +154,7 @@ def main(data_dir: str, *, push_to_hub: bool = False):
             push_videos=True,
             license="apache-2.0",
         )
+
 
 if __name__ == "__main__":
     tyro.cli(main)

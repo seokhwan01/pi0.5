@@ -69,6 +69,9 @@ class DataConfig:
     asset_id: str | None = None
     # Contains precomputed normalization stats. If None, normalization will not be performed.
     norm_stats: dict[str, _transforms.NormStats] | None = None
+    
+    sample_indices_path: str | None = None
+    lerobot_root: str | None = None
 
     # Used to adopt the inputs from a dataset specific format to a common format
     # which is expected by the data transforms.
@@ -437,7 +440,7 @@ class LeRobotDROIDDataConfig(DataConfigFactory):
                 _transforms.RepackTransform(
                     {
                         "observation/exterior_image_1_left": "exterior_image_1_left",
-                        "observation/exterior_image_2_left": "exterior_image_2_left",
+                        # "observation/exterior_image_2_left": "exterior_image_2_left",
                         "observation/wrist_image_left": "wrist_image_left",
                         "observation/joint_position": "joint_position",
                         "observation/gripper_position": "gripper_position",
@@ -904,15 +907,26 @@ _CONFIGS = [
         ),
         data=LeRobotDROIDDataConfig(
             # Replace with your custom DROID LeRobot dataset repo id.
-            repo_id="your_hf_username/my_droid_dataset",
-            base_config=DataConfig(prompt_from_task=True),
+            # repo_id="your_hf_username/my_droid_dataset",
+            repo_id="seokhwan/my_droid_dataset",
+            # base_config=DataConfig(prompt_from_task=True),
+            base_config=DataConfig(
+                prompt_from_task=True,
+                sample_indices_path="/home/seokhwan/my_droid_dataset_lerobot/nonidle_indices.npy",
+                lerobot_root="/home/seokhwan/my_droid_dataset_lerobot",
+            ),
+                # assets=AssetsConfig(
+                #     # Important: reuse the original DROID norm stats during fine-tuning!
+                #     assets_dir="gs://openpi-assets/checkpoints/pi05_droid/assets",
+                #     asset_id="droid",
+                # ),
             assets=AssetsConfig(
-                # Important: reuse the original DROID norm stats during fine-tuning!
-                assets_dir="gs://openpi-assets/checkpoints/pi05_droid/assets",
+                assets_dir="gs://openpi-assets/checkpoints/pi05_base/assets", #base check point
                 asset_id="droid",
             ),
         ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_droid/params"),
+        # weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_droid/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
         num_train_steps=20_000,
         batch_size=32,
     ),

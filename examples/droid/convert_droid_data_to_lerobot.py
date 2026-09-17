@@ -81,7 +81,6 @@ def main(data_dir: str, *, push_to_hub: bool = False):
                 "names": ["actions"],
             },
         },
-        
         image_writer_threads=10,
         image_writer_processes=5,
     )
@@ -100,7 +99,7 @@ def main(data_dir: str, *, push_to_hub: bool = False):
     #          - <camera_id>.mp4  # single-view video of left stereo pair camera
     #     - trajectory.hdf5
     #   - <...>/
-    
+
     episode_paths = list(data_dir.glob("**/trajectory.h5"))
     print(f"Found {len(episode_paths)} episodes for conversion")
 
