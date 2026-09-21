@@ -947,7 +947,8 @@ _CONFIGS = [
         ema_decay=None,
         
         # num_train_steps=20_000,
-        num_train_steps=30_000,
+        # num_train_steps=30_000,
+        num_train_steps=15_000,
         batch_size=1,
     ),
     

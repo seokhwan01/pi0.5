@@ -19,7 +19,7 @@ import pandas as pd
 from PIL import Image
 from tqdm import tqdm
 import tyro
-from droid_csv_preprocess import filter_idle_rows
+# from droid_csv_preprocess import filter_idle_rows
 
 # REPO_NAME = "your_hf_username/my_droid_dataset"  # Name of the output dataset, also used for the Hugging Face Hub
 REPO_NAME = "seokhwan/my_droid_dataset"
