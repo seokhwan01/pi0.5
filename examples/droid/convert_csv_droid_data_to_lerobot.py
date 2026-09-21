@@ -24,6 +24,14 @@ from droid_csv_preprocess import filter_idle_rows
 # REPO_NAME = "your_hf_username/my_droid_dataset"  # Name of the output dataset, also used for the Hugging Face Hub
 REPO_NAME = "seokhwan/my_droid_dataset"
 
+    # Observation:
+    #     - RGB image
+    #     - joint position
+    #     - gripper position
+
+    # Action:
+    #     - joint velocity (7D)
+    #     - gripper command (1D)
 
 def resize_image(image, size):
     image = Image.fromarray(image)
@@ -96,33 +104,58 @@ def main(data_dir: str, *, push_to_hub: bool = False):
         # 2. 여기서 joint velocity 계산
         joint_cols = ["joint_1", "joint_2", "joint_3", "joint_4", "joint_5", "joint_6", "joint_7"]
 
-        joint_pos = episode_df[joint_cols].to_numpy(dtype=np.float32)
-        timestamps = episode_df["timestamp"].to_numpy(dtype=np.float32)
+        joint_pos = episode_df[joint_cols].to_numpy(dtype=np.float64)
+        timestamps = episode_df["timestamp"].to_numpy(dtype=np.float64)
 
         joint_vel = np.zeros_like(joint_pos)
 
         dt = timestamps[1:] - timestamps[:-1]
+        
+        if np.any(dt <= 0):
+            raise ValueError(f"Non-positive dt found in {episode_path}")
+
 
         joint_vel[:-1] = (joint_pos[1:] - joint_pos[:-1]) / dt[:, None]
 
         joint_vel[-1] = joint_vel[-2]
+        
+        
 
         for i, row in episode_df.iterrows():
             primary_path = episode_path / row["primary"]
             wrist_path = episode_path / row["wrist"]
-            gripper_position = float(row["finger_1"])
+            
+            
+            # --------------------------------------------------
+            # DROID observation gripper_position
+            # 0 = open, 1 = closed
+            # --------------------------------------------------
+            finger_1 = float(row["finger_1"])
+            finger_2 = float(row["finger_2"])
+            gripper_width = finger_1 + finger_2
+            gripper_position = 1.0 - (gripper_width / 0.08)
+            gripper_position = float(np.clip(gripper_position, 0.0, 1.0))
+            
             primary = np.array(Image.open(primary_path).convert("RGB"))
             wrist = np.array(Image.open(wrist_path).convert("RGB"))
 
             primary = resize_image(primary, (320, 180))
             wrist = resize_image(wrist, (320, 180))
 
-            action_gripper = float(str(row["target_gripper"]).strip("[]"))
+            raw_gripper = float(
+                str(row["target_gripper"]).strip("[]")
+            )
+
+            action_gripper = (1.0 - raw_gripper) / 2.0
+            action_gripper = float(np.clip(action_gripper, 0.0, 1.0))
 
             language_instruction = str(row["language"])
 
             if language_instruction.startswith("b'") and language_instruction.endswith("'"):
                 language_instruction = language_instruction[2:-1]
+                
+            action = np.concatenate(
+                [joint_vel[i], np.asarray([action_gripper], dtype=np.float64),]).astype(np.float32)
 
             dataset.add_frame(
                 {
@@ -141,7 +174,7 @@ def main(data_dir: str, *, push_to_hub: bool = False):
                         dtype=np.float32,
                     ),
                     "gripper_position": np.asarray([gripper_position], dtype=np.float32),
-                    "actions": np.concatenate([joint_vel[i], np.asarray([action_gripper], dtype=np.float32)]),
+                    "actions": action,
                     "task": language_instruction,
                 }
             )
