@@ -2,7 +2,7 @@
 Minimal example script for converting a dataset collected on the DROID platform to LeRobot format.
 
 Usage:
-uv run examples/droid/convert_droid_data_to_lerobot.py --data_dir /path/to/your/data
+uv run examples/droid/convert_csv_droid_data_to_lerobot.py --data_dir /path/to/your/data
 
 If you want to push your dataset to the Hugging Face Hub, you can use the following command:
 uv run examples/droid/convert_droid_data_to_lerobot.py --data_dir /path/to/your/data --push_to_hub

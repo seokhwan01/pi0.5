@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-
+#uv run examples/droid/compute_lerobot_nonidle_indices.py 
 DATA_DIR = Path.home() / "my_droid_dataset_lerobot"
 OUTPUT = DATA_DIR / "nonidle_indices.npy"
 
