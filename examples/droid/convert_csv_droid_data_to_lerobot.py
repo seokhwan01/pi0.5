@@ -139,15 +139,11 @@ def main(data_dir: str, *, push_to_hub: bool = False):
             primary = np.array(Image.open(primary_path).convert("RGB"))
             wrist = np.array(Image.open(wrist_path).convert("RGB"))
 
-            primary = resize_image(primary, (320, 180))
-            wrist = resize_image(wrist, (320, 180))
+            # primary = resize_image(primary, (320, 180))
+            # wrist = resize_image(wrist, (320, 180))
 
-            raw_gripper = float(
-                str(row["target_gripper"]).strip("[]")
-            )
-
-            action_gripper = (1.0 - raw_gripper) / 2.0
-            action_gripper = float(np.clip(action_gripper, 0.0, 1.0))
+            raw_gripper = float(row["target_gripper"])
+            action_gripper = float(np.clip(raw_gripper, 0.0, 1.0))
 
             language_instruction = str(row["language"])
 

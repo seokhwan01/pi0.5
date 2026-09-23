@@ -895,6 +895,7 @@ _CONFIGS = [
         keep_period=10_000,
         num_workers=0,  # Important: RLDS DataLoader requires num_workers=0, handles multi-processing internally
     ),
+
     TrainConfig(
         # This config is for fine-tuning pi05-DROID on a custom (smaller) DROID dataset.
         # Here, we use LeRobot data format (like for all other fine-tuning examples)
@@ -910,32 +911,21 @@ _CONFIGS = [
             action_expert_variant="gemma_300m_lora",
         ),
         
-        
         data=LeRobotDROIDDataConfig(
-            # Replace with your custom DROID LeRobot dataset repo id.
-            # repo_id="your_hf_username/my_droid_dataset",
             repo_id="seokhwan/my_droid_dataset",
-            # base_config=DataConfig(prompt_from_task=True),
             
             base_config=DataConfig(
                 prompt_from_task=True,
                 sample_indices_path="/home/yina/seokhwan/my_droid_dataset_lerobot/nonidle_indices.npy",
                 lerobot_root="/home/yina/seokhwan/my_droid_dataset_lerobot",
             ),
-                # assets=AssetsConfig(
-                #     # Important: reuse the original DROID norm stats during fine-tuning!
-                #     assets_dir="gs://openpi-assets/checkpoints/pi05_droid/assets",
-                #     asset_id="droid",
-                # ),
-            assets=AssetsConfig(
-                assets_dir="gs://openpi-assets/checkpoints/pi05_base/assets", #base check point
-                asset_id="droid",
-            ),
+            # assets=AssetsConfig(
+            #     assets_dir="gs://openpi-assets/checkpoints/pi05_base/assets", #base check point
+            #     asset_id="droid",
+            # ),
         ),
-        # weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_droid/params"),
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
         
-        # 원본 weight freeze → LoRA parameter만 학습
         freeze_filter=pi0_config.Pi0Config(
             pi05=True,
             action_dim=32,
@@ -943,11 +933,8 @@ _CONFIGS = [
             paligemma_variant="gemma_2b_lora",
             action_expert_variant="gemma_300m_lora",
         ).get_freeze_filter(),
-        #  EMA 비활성화
         ema_decay=None,
-        
-        # num_train_steps=20_000,
-        # num_train_steps=30_000,
+
         num_train_steps=5_000,
         batch_size=1,
     ),
