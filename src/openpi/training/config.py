@@ -924,7 +924,7 @@ _CONFIGS = [
             #     asset_id="droid",
             # ),
         ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_droid/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
         
         freeze_filter=pi0_config.Pi0Config(
             pi05=True,
