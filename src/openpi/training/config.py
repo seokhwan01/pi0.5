@@ -919,10 +919,10 @@ _CONFIGS = [
                 # sample_indices_path="/home/yina/seokhwan/my_droid_dataset_lerobot/nonidle_indices.npy",
                 lerobot_root="/home/yina/seokhwan/my_droid_dataset_lerobot",
             ),
-            assets=AssetsConfig(
-                assets_dir="gs://openpi-assets/checkpoints/pi05_droid/assets", #base check point
-                asset_id="droid",
-            ),
+            # assets=AssetsConfig(
+            #     assets_dir="gs://openpi-assets/checkpoints/pi05_droid/assets", #base check point
+            #     asset_id="droid",
+            # ),
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_droid/params"),
         
