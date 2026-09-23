@@ -916,15 +916,15 @@ _CONFIGS = [
             
             base_config=DataConfig(
                 prompt_from_task=True,
-                sample_indices_path="/home/yina/seokhwan/my_droid_dataset_lerobot/nonidle_indices.npy",
+                # sample_indices_path="/home/yina/seokhwan/my_droid_dataset_lerobot/nonidle_indices.npy",
                 lerobot_root="/home/yina/seokhwan/my_droid_dataset_lerobot",
             ),
-            # assets=AssetsConfig(
-            #     assets_dir="gs://openpi-assets/checkpoints/pi05_base/assets", #base check point
-            #     asset_id="droid",
-            # ),
+            assets=AssetsConfig(
+                assets_dir="gs://openpi-assets/checkpoints/pi05_droid/assets", #base check point
+                asset_id="droid",
+            ),
         ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_droid/params"),
         
         freeze_filter=pi0_config.Pi0Config(
             pi05=True,
@@ -935,7 +935,7 @@ _CONFIGS = [
         ).get_freeze_filter(),
         ema_decay=None,
 
-        num_train_steps=5_000,
+        num_train_steps=10_000,
         batch_size=1,
     ),
     
