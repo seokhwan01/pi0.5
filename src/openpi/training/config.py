@@ -935,7 +935,7 @@ _CONFIGS = [
         ).get_freeze_filter(),
         ema_decay=None,
 
-        num_train_steps=10_000,
+        num_train_steps=20_000,
         batch_size=1,
     ),
     
