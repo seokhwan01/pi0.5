@@ -916,7 +916,7 @@ _CONFIGS = [
             
             base_config=DataConfig(
                 prompt_from_task=True,
-                # sample_indices_path="/home/yina/seokhwan/my_droid_dataset_lerobot/nonidle_indices.npy",
+                sample_indices_path="/home/yina/seokhwan/my_droid_dataset_lerobot/nonidle_indices.npy",
                 lerobot_root="/home/yina/seokhwan/my_droid_dataset_lerobot",
             ),
             # assets=AssetsConfig(

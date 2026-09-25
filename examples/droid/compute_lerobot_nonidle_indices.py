@@ -27,7 +27,7 @@ GRIPPER_EVENT_WINDOW = 15  # ±1 sec @ 15Hz
 class Config:
 
     data_dir: str = str(
-        Path.home() / "my_droid_dataset_lerobot"
+        Path.home() / "seokhwan/my_droid_dataset_lerobot"
     )
 
     action_mode: str = "custom"
