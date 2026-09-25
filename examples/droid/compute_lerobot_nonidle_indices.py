@@ -1,112 +1,348 @@
 from pathlib import Path
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
+import tyro
 
-#uv run examples/droid/compute_lerobot_nonidle_indices.py 
-DATA_DIR = Path.home() / "my_droid_dataset_lerobot"
-OUTPUT = DATA_DIR / "nonidle_indices.npy"
 
-MIN_IDLE_LEN = 7
+# ============================
+# Parameters
+# ============================
+
+MIN_IDLE_LEN = 15          # 1 sec @ 15Hz
 MIN_NON_IDLE_LEN = 16
-FILTER_LAST_N = 10
+FILTER_LAST_N = 16         # pi0.5 horizon
 VELOCITY_EPS = 1e-3
 
+# keep frames around gripper open/close event
+GRIPPER_EVENT_WINDOW = 15  # ±1 sec @ 15Hz
 
-def get_keep_indices(episode_df):
-    actions = np.stack(episode_df["actions"].to_numpy())
 
-    joint_vel = actions[:, :7]
-    gripper = actions[:, 7]
+# ============================
+# Config
+# ============================
 
-    # 팔이 거의 움직이지 않는 frame
-    arm_idle = np.all(
-        np.abs(joint_vel) < VELOCITY_EPS,
-        axis=1,
+@dataclass
+class Config:
+
+    data_dir: str = str(
+        Path.home() / "my_droid_dataset_lerobot"
     )
 
-    # gripper가 바뀌는 frame은 유지
-    gripper_changed = np.r_[
+    action_mode: str = "custom"
+    # custom:
+    #   actions[:7] = commanded joint velocity [rad/s]
+    #
+    # droid:
+    #   actions[:7] = joint velocity
+
+
+# ============================
+# Gripper event mask
+# ============================
+
+def get_gripper_event_mask(gripper):
+
+    changed = (
+        np.abs(
+            gripper[1:] - gripper[:-1]
+        ) > 1e-6
+    )
+
+    changed = np.r_[
         False,
-        np.abs(gripper[1:] - gripper[:-1]) > 1e-6,
+        changed
     ]
 
-    is_idle = arm_idle & ~gripper_changed
+    event_mask = np.zeros(
+        len(gripper),
+        dtype=bool
+    )
 
-    # 연속 idle 구간 찾기
-    padded = np.r_[False, is_idle, False]
-    diff = np.diff(padded.astype(int))
 
-    idle_starts = np.where(diff == 1)[0]
-    idle_ends = np.where(diff == -1)[0]
+    event_indices = np.where(
+        changed
+    )[0]
 
-    # 7 frame 이상 idle인 구간만 제거
-    long_idle = (
-        idle_ends - idle_starts
-    ) >= MIN_IDLE_LEN
 
-    keep = np.ones(len(episode_df), dtype=bool)
+    for idx in event_indices:
+
+        start = max(
+            0,
+            idx - GRIPPER_EVENT_WINDOW
+        )
+
+        end = min(
+            len(gripper),
+            idx + GRIPPER_EVENT_WINDOW + 1
+        )
+
+        event_mask[start:end] = True
+
+
+    return event_mask
+
+
+
+# ============================
+# Episode filtering
+# ============================
+
+def get_keep_indices(
+    episode_df,
+    action_mode
+):
+
+    actions = np.stack(
+        episode_df["actions"].to_numpy()
+    )
+
+
+    # -------------------------
+    # Action interpretation
+    # -------------------------
+
+    if action_mode == "custom":
+
+        # custom dataset
+        # cmd_joint_vel [rad/s]
+
+        joint_vel = actions[:, :7]
+
+
+    elif action_mode == "droid":
+
+        # DROID dataset
+        # joint velocity action
+
+        joint_vel = actions[:, :7]
+
+
+    else:
+
+        raise ValueError(
+            f"Unknown action mode: {action_mode}"
+        )
+
+
+    gripper = actions[:, 7]
+
+
+    # -------------------------
+    # Arm idle detection
+    # -------------------------
+
+    arm_idle = np.all(
+        np.abs(joint_vel)
+        < VELOCITY_EPS,
+        axis=1
+    )
+
+
+    # -------------------------
+    # Gripper event protection
+    # -------------------------
+
+    gripper_event = (
+        get_gripper_event_mask(
+            gripper
+        )
+    )
+
+
+    # idle only if:
+    # arm stopped
+    # no gripper event nearby
+
+    is_idle = (
+        arm_idle
+        &
+        (~gripper_event)
+    )
+
+
+    # -------------------------
+    # Remove long idle
+    # -------------------------
+
+    padded = np.r_[
+        False,
+        is_idle,
+        False
+    ]
+
+    diff = np.diff(
+        padded.astype(int)
+    )
+
+
+    idle_starts = np.where(
+        diff == 1
+    )[0]
+
+    idle_ends = np.where(
+        diff == -1
+    )[0]
+
+
+    keep = np.ones(
+        len(episode_df),
+        dtype=bool
+    )
+
 
     for start, end in zip(
-        idle_starts[long_idle],
-        idle_ends[long_idle],
+        idle_starts,
+        idle_ends,
         strict=True,
     ):
-        keep[start:end] = False
 
-    # 남은 연속 구간 찾기
-    padded = np.r_[False, keep, False]
-    diff = np.diff(padded.astype(int))
+        if (
+            end - start
+        ) >= MIN_IDLE_LEN:
 
-    starts = np.where(diff == 1)[0]
-    ends = np.where(diff == -1)[0]
+            keep[start:end] = False
+
+
+
+    # -------------------------
+    # Find remaining segments
+    # -------------------------
+
+    padded = np.r_[
+        False,
+        keep,
+        False
+    ]
+
+    diff = np.diff(
+        padded.astype(int)
+    )
+
+
+    starts = np.where(
+        diff == 1
+    )[0]
+
+    ends = np.where(
+        diff == -1
+    )[0]
+
 
     valid = (
-        ends - starts
-    ) >= MIN_NON_IDLE_LEN
+        (ends - starts)
+        >= MIN_NON_IDLE_LEN
+    )
+
 
     indices = []
+
 
     for start, end in zip(
         starts[valid],
         ends[valid],
         strict=True,
     ):
+
+        # remove final settling frames
+
         end -= FILTER_LAST_N
 
+
         if end > start:
-            indices.extend(range(start, end))
+
+            indices.extend(
+                range(start, end)
+            )
+
 
     return indices
 
 
-def main():
+
+# ============================
+# Main
+# ============================
+
+def main(cfg: Config):
+
+
+    data_dir = Path(
+        cfg.data_dir
+    )
+
+
+    output = (
+        data_dir
+        /
+        "nonidle_indices.npy"
+    )
+
+
     files = sorted(
-        DATA_DIR.glob(
+        data_dir.glob(
             "data/chunk-*/episode_*.parquet"
         )
     )
 
+
+    if len(files) == 0:
+
+        raise RuntimeError(
+            f"No parquet found in {data_dir}"
+        )
+
+
     all_indices = []
 
-    for path in files:
-        episode_df = pd.read_parquet(path)
 
-        local_indices = get_keep_indices(
-            episode_df
+    print(
+        f"Found {len(files)} parquet files"
+    )
+
+    print(
+        f"Action mode: {cfg.action_mode}"
+    )
+
+
+    for path in files:
+
+
+        episode_df = pd.read_parquet(
+            path
         )
 
-        # LeRobot이 저장한 실제 global index 사용
+
+        local_indices = (
+            get_keep_indices(
+                episode_df,
+                cfg.action_mode
+            )
+        )
+
+
+        # LeRobot global index
+
         global_indices = (
             episode_df["index"]
-            .to_numpy(dtype=np.int64)
+            .to_numpy(
+                dtype=np.int64
+            )
         )
 
-        selected = global_indices[
-            local_indices
-        ]
 
-        all_indices.extend(selected.tolist())
+        selected = (
+            global_indices[
+                local_indices
+            ]
+        )
+
+
+        all_indices.extend(
+            selected.tolist()
+        )
+
 
         print(
             f"{path.name}: "
@@ -114,17 +350,37 @@ def main():
             f"{len(selected)}"
         )
 
+
+
     all_indices = np.asarray(
         all_indices,
-        dtype=np.int64,
+        dtype=np.int64
     )
 
-    np.save(OUTPUT, all_indices)
+
+    np.save(
+        output,
+        all_indices
+    )
+
 
     print()
-    print("학습에 사용할 frame:", len(all_indices))
-    print("저장:", OUTPUT)
+    print(
+        "Training frames:",
+        len(all_indices)
+    )
+
+    print(
+        "Saved:",
+        output
+    )
+
 
 
 if __name__ == "__main__":
-    main()
+
+    cfg = tyro.cli(
+        Config
+    )
+
+    main(cfg)
