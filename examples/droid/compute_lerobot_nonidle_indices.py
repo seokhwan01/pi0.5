@@ -10,9 +10,15 @@ import tyro
 # Parameters
 # ============================
 
-MIN_IDLE_LEN = 7          # 1 sec @ 15Hz
+# MIN_IDLE_LEN = 7          # 1 sec @ 15Hz
+# MIN_NON_IDLE_LEN = 16
+# FILTER_LAST_N = 10         # pi0.5 horizon
+# VELOCITY_EPS = 1e-3
+
+
+MIN_IDLE_LEN = 30         # 1 sec @ 15Hz
 MIN_NON_IDLE_LEN = 16
-FILTER_LAST_N = 10         # pi0.5 horizon
+FILTER_LAST_N = 0         # pi0.5 horizon
 VELOCITY_EPS = 1e-3
 
 # keep frames around gripper open/close event
